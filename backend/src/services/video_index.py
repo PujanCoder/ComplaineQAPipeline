@@ -34,18 +34,19 @@ class VideoIndexerService:
     def get_account_token(self):
 
         url = (
-        f"https://management.azure.com/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.VideoIndexer/accounts/{self.account_id}/AccessToken?allowEdit=true&api-version=2021-11-10-preview"
-        f"/resourceGroups/{self.resource_group}/providers/Microsoft.VideoIndexer/accounts/{self.account_id}/AccessToken?allowEdit=true&api-version=2021-11-10-preview"
-        f"/providers/Microsoft.VideoIndexer/accounts/{self.account_id}/AccessToken?allowEdit=true&api-version=2021-11-10-preview"
-        f"/generateAccessToken?allowEdit=true&api-version=2021-11-10-preview"
-        )
+    f"https://management.azure.com/subscriptions/{self.subscription_id}"
+    f"/resourceGroups/{self.resource_group}"
+    f"/providers/Microsoft.VideoIndexer/accounts/{self.account_id}"
+    f"/generateAccessToken"
+    f"?allowEdit=true&api-version=2021-11-10-preview"
+)
         headers= {
             "Authorization": f"Bearer {self.get_access_token()}"
         }
         payload = {"PermissionType":"Contributor","scope":"Account"}
         response = requests.post(url, headers=headers, json=payload)
 
-        if response.status_code == 200:
+        if response.status_code != 200:
             raise Exception(f"Failed to get account token: {response.status_code} - {response.text}")
         return response.json().get("accessToken")
 
@@ -73,7 +74,7 @@ class VideoIndexerService:
 
     def upload_video(self, video_path, video_name):
         arm_token = self.get_access_token()
-        vi_token = self.get_account_token(arm_token)
+        vi_token = self.get_account_token()
 
 
         api_url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos?name={video_name}&privacy=Private&videoUrl={video_path}&accessToken={vi_token}"
@@ -93,8 +94,7 @@ class VideoIndexerService:
         if response.status_code != 200:
             raise Exception(f"Failed to upload video: {response.status_code} - {response.text}")
 
-
-    def wait_for_processing(self,video_id)
+    def wait_for_processing(self, video_id):
         logger.info(f"Waiting for video {video_id} to finish processing...")
         while True:
             arm_token = self.get_access_token()
@@ -114,7 +114,8 @@ class VideoIndexerService:
             elif state == "Failed":
                 raise Exception(f"Video processing failed: {data}")
             elif state == "Processing":
-                raise Exception(f"Video is still processing. Current state: {state}.")
+                logger.info("Video is still processing. Waiting 30 seconds...")
+                time.sleep(30)
             else:
                 logger.info(f"Video {video_id} is still processing. Current state: {state}. Waiting for 30 seconds...")
                 time.sleep(30)

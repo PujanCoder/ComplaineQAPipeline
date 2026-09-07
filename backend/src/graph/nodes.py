@@ -1,24 +1,22 @@
 import json
 import os
 
-from envs.mlops.Lib import re
-import loggingq
-import rre
+import re
+import logging
+
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-
-from langchain_openai import AzureChatOpenAI, AzureChatOpenAIEmbeddings
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_community.vectorstores import AzureSearch
-from langchain_core.prompt import ChatPromptTemplate, PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from backend.src.graph.states import VideoAuditState, ComplainceIssues
 
 
-from backend.src.services.video_indexer import VideoIndexerService
+from backend.src.services.video_index import VideoIndexerService
 
-
-logger = loggingq.getLogger("brand-gaurdian"   )
+logger = logging.getLogger("brand-gaurdian"   )
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
@@ -28,10 +26,10 @@ def index_video_nodes(state:VideoAuditState)-> Tuple[VideoAuditState, List[str]]
     video_id_input= state.get("video_id, video_demo")
 
 
-    logger_info(f"Indexing video nodes for video_id: {video_id_input} and video_url: {video_url}")
+    logger.info(f"Indexing video nodes for video_id: {video_id_input} and video_url: {video_url}")
     local_file_path="tem_audit_video.mp4"
 
-    try;
+    try:
         vi_service = VideoIndexerService()
         if "youtube.com" in video_url or "youtu.be" in video_url:
             local_file_path = vi_service.download_youtube_video(video_url, output_path=local_file_path)
@@ -80,7 +78,7 @@ def audio_content_node(state: VideoAuditState) -> Dict[str, Any]:
         temperature = 0.2,
 
     )
-    embeddings = AzureChatOpenAIEmbeddings(
+    embeddings = AzureOpenAIEmbeddings(
         azure_deployment = "text-embedding-3-small",
         openai_api_version = os.getenv("AZURE_OPENAI_API_VERSION"),
     )

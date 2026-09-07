@@ -1,4 +1,4 @@
-from langgraph import StateGrapH , End
+from langgraph.graph import StateGraph, END
 from langgraph.graph import StateGraph
 from backend.src.graph.states import VideoAuditState, ComplainceIssues
 
@@ -13,7 +13,8 @@ def create_graph():
      workflow.set_entry_point("indexer")
      workflow.add_edge("indexer", "auditor") 
 
-     workflow.add_edge("auditor", End())
+     workflow.add_edge("auditor", END)
 
      app = workflow.compile()
      return app
+app = create_graph()
