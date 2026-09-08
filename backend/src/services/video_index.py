@@ -3,6 +3,7 @@ import os
 import time
 import logging
 from urllib import response
+from langchain_openai import data
 import yt_dlp
 import requests
 
@@ -33,92 +34,222 @@ class VideoIndexerService:
 
     def get_account_token(self):
 
+    
+
         url = (
-    f"https://management.azure.com/subscriptions/{self.subscription_id}"
-    f"/resourceGroups/{self.resource_group}"
-    f"/providers/Microsoft.VideoIndexer/accounts/{self.account_id}"
-    f"/generateAccessToken"
-    f"?allowEdit=true&api-version=2021-11-10-preview"
-)
-        headers= {
-            "Authorization": f"Bearer {self.get_access_token()}"
-        }
-        payload = {"PermissionType":"Contributor","scope":"Account"}
-        response = requests.post(url, headers=headers, json=payload)
+        f"https://management.azure.com/subscriptions/{self.subscription_id}"
+        f"/resourceGroups/{self.resource_group}"
+        f"/providers/Microsoft.VideoIndexer/accounts/{self.vi_name}"
+        f"/generateAccessToken"
+        f"?api-version=2025-04-01"
+    )
+
+        arm_token = self.get_access_token()
+
+        if not arm_token:
+            raise Exception("Could not obtain Azure ARM access token.")
+
+        headers = {
+        "Authorization": f"Bearer {arm_token}",
+        "Content-Type": "application/json",
+    }
+
+        payload = {
+        "permissionType": "Contributor",
+        "scope": "Account",
+    }
+
+        response = requests.post(
+        url,
+        headers=headers,
+        json=payload,
+        timeout=30,
+    )
 
         if response.status_code != 200:
-            raise Exception(f"Failed to get account token: {response.status_code} - {response.text}")
-        return response.json().get("accessToken")
+            raise Exception(
+            f"Failed to get Video Indexer access token: "
+            f"{response.status_code} - {response.text}"
+        )
 
-    def download_youtube_video(self, url, output_path="temp_video.mp4"):
-        logger.info(f"Downloading video from {url} to {output_path}")
+        vi_token = response.json().get("accessToken")
 
+        if not vi_token:
+            raise Exception("Video Indexer response did not contain accessToken.")
+
+        logger.info("Successfully obtained Video Indexer account access token.")
+
+        return vi_token
+
+    def download_youtube_video(self, video_url):
+        output_path = os.path.abspath("tem_audit_video")
 
         ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
-            'outtmpl': output_path,
-            'quiet': True,
-            'overwrite': True,
-        }
+    "format": "bestvideo*+bestaudio/best",
+    "remote_components": ["ejs:github"],
+    "outtmpl": output_path + ".%(ext)s",
+    "quiet": True,
+    "overwrites": True,
+    "merge_output_format": "mp4",
+}
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            
-            logger.info(f"Video downloaded successfully to {output_path}")
-            return output_path
-        except Exception as e:
-            raise Exception(f"Error downloading video from {url}: {e}")
-        
+        logger.info(f"Downloading video from {video_url}")
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=True)
+            downloaded_path = ydl.prepare_filename(info)
+
+        logger.info(f"Video downloaded successfully to {downloaded_path}")
+
+        return downloaded_path
 
 
     def upload_video(self, video_path, video_name):
-        arm_token = self.get_access_token()
+
         vi_token = self.get_account_token()
 
-
-        api_url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos?name={video_name}&privacy=Private&videoUrl={video_path}&accessToken={vi_token}"
+        api_url = (
+        f"https://api.videoindexer.ai/{self.location}"
+        f"/Accounts/{self.account_id}/Videos"
+    )
 
         params = {
-            "accessToken": vi_token,
-            "name": video_name,
-            "privacy": "Private",
-            "indexingPreset": "Default",
-        }
+        "accessToken": vi_token,
+        "name": video_name,
+        "privacy": "Private",
+        "indexingPreset": "Default",
+    }
 
         logger.info(f"Uploading video {video_name} to Video Indexer...")
 
-        with open(video_path, 'rb') as video_file:
-            files = {'file': video_file}
-            response = requests.post(api_url, headers={"Authorization": f"Bearer {arm_token}"}, files=files, params=params)
-        if response.status_code != 200:
-            raise Exception(f"Failed to upload video: {response.status_code} - {response.text}")
+        with open(video_path, "rb") as video_file:
+
+            files = {
+            "file": video_file
+        }
+
+            response = requests.post(
+            api_url,
+            files=files,
+            params=params,
+            timeout=300,
+        )
+
+        if response.status_code not in (200, 201):
+            raise Exception(
+            f"Failed to upload video: "
+            f"{response.status_code} - {response.text}"
+        )
+
+        data = response.json()
+
+        video_id = data.get("id")
+
+        if not video_id:
+            raise Exception(
+            f"Upload succeeded but Video Indexer returned no video ID: {data}"
+        )
+
+        logger.info(
+        f"Video uploaded successfully. Video ID: {video_id}"
+    )
+
+        return video_id
+
 
     def wait_for_processing(self, video_id):
-        logger.info(f"Waiting for video {video_id} to finish processing...")
+
+        logger.info(
+        f"Waiting for video {video_id} to finish processing..."
+    )
+
         while True:
-            arm_token = self.get_access_token()
-            vi_token = self.get_account_token(arm_token)
 
+            vi_token = self.get_account_token()
 
-            url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos/{video_id}/Index?accessToken={vi_token}"
+            url = (
+            f"https://api.videoindexer.ai/{self.location}"
+            f"/Accounts/{self.account_id}"
+            f"/Videos/{video_id}/Index"
+        )
+
             params = {
-                "accessToken": vi_token,
-            }
-            response = requests.get(url, headers={"Authorization": f"Bearer {arm_token}"}, params=params)
+            "accessToken": vi_token,
+        }
+
+            response = requests.get(
+            url,
+            params=params,
+            timeout=30,
+        )
+
+            if response.status_code != 200:
+                raise Exception(
+                f"Failed to get video status: "
+                f"{response.status_code} - {response.text}"
+            )
+
             data = response.json()
 
             state = data.get("state")
+
+            logger.info(
+            f"Video {video_id} current state: {state}"
+        )
+
             if state == "Processed":
+                logger.info("Video processing completed.")
+
                 return data
+
             elif state == "Failed":
-                raise Exception(f"Video processing failed: {data}")
-            elif state == "Processing":
-                logger.info("Video is still processing. Waiting 30 seconds...")
-                time.sleep(30)
+                raise Exception(
+                f"Video processing failed: {data}"
+            )
+
             else:
-                logger.info(f"Video {video_id} is still processing. Current state: {state}. Waiting for 30 seconds...")
+                logger.info(
+                "Video is still processing. Waiting 30 seconds..."
+            )
                 time.sleep(30)
+    def get_video_insights(self, video_id):
+        """Retrieve processed video insights from Azure Video Indexer."""
+
+        vi_token = self.get_account_token()
+
+        url = (
+        f"https://api.videoindexer.ai/{self.location}"
+        f"/Accounts/{self.account_id}"
+        f"/Videos/{video_id}/Index"
+    )
+
+        params = {
+        "accessToken": vi_token,
+    }
+
+        logger.info(
+        f"Getting insights for Video Indexer video: {video_id}"
+    )
+
+        response = requests.get(
+        url,
+        params=params,
+        timeout=60,
+    )
+
+        if response.status_code != 200:
+            raise Exception(
+            f"Failed to get video insights: "
+            f"{response.status_code} - {response.text}"
+        )
+
+        data = response.json()
+
+        logger.info(
+        f"Successfully retrieved insights for video {video_id}"
+    )
+
+        return data
     def extract_data(self, vi_json):
         transcript_lines = []
         for v in vi_json.get("videos", []):
@@ -130,3 +261,7 @@ class VideoIndexerService:
         for v in vi_json.get("videos", []):
             for insight in v.get("insights", {}).get("ocr", []):
                 ocr_lines.append(insight.get("text", ""))       
+        return {
+            "transcript": transcript_lines,
+            "ocr": ocr_lines,
+        }

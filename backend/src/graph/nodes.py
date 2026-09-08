@@ -3,10 +3,11 @@ import os
 
 import re
 import logging
+from langchain_openai import AzureChatOpenAI, OpenAIEmbeddings
 
 from typing import Any, Dict, List, Optional, Tuple, Union
+from langchain_openai import AzureChatOpenAI, OpenAIEmbeddings
 
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_community.vectorstores import AzureSearch
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -21,42 +22,116 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 
 
 
-def index_video_nodes(state:VideoAuditState)-> Tuple[VideoAuditState, List[str]]:
+def index_video_nodes(state: VideoAuditState) -> Tuple[VideoAuditState, List[str]]:
     video_url = state.get("video_url")
-    video_id_input= state.get("video_id, video_demo")
+    video_id_input = state.get("video_id")
 
+    logger.info(
+        f"Indexing video nodes for video_id: {video_id_input} "
+        f"and video_url: {video_url}"
+    )
 
-    logger.info(f"Indexing video nodes for video_id: {video_id_input} and video_url: {video_url}")
-    local_file_path="tem_audit_video.mp4"
+    local_file_path = "tem_audit_video.mp4"
 
     try:
         vi_service = VideoIndexerService()
+
+        # 1. Download YouTube video
         if "youtube.com" in video_url or "youtu.be" in video_url:
-            local_file_path = vi_service.download_youtube_video(video_url, output_path=local_file_path)
+            local_file_path = vi_service.download_youtube_video(video_url)
         else:
-            raise Exception("Unsupported video URL. Only YouTube URLs are supported.")
+            raise Exception(
+                "Unsupported video URL. Only YouTube URLs are supported."
+            )
 
-        azure_video_id = vi_service.upload_video(local_file_path, video_id_input)
-        logger.info(f"Uploaded video to Azure Video Indexer with ID: {azure_video_id}")
+        # 2. Upload video to Azure Video Indexer
+        azure_video_id = vi_service.upload_video(
+            local_file_path,
+            video_id_input
+        )
 
+        logger.info(
+            f"Uploaded video to Azure Video Indexer with ID: {azure_video_id}"
+        )
+
+        # 3. Delete local file
         if os.path.exists(local_file_path):
             os.remove(local_file_path)
-            logger.info(f"Deleted local video file: {local_file_path}")
+            logger.info(
+                f"Deleted local video file: {local_file_path}"
+            )
 
-        raw_insights = vi_service.get_video_insights(azure_video_id)
-        logger.info(f"Retrieved video insights for ID: {azure_video_id}")
+        # 4. WAIT for Azure Video Indexer to finish processing
+        logger.info(
+            f"Waiting for Azure Video Indexer to process "
+            f"video {azure_video_id}..."
+        )
 
-        clean_data= vi_service.extract_data(raw_insights)
-        logger.info(f"Extracted clean data from video insights for ID: {azure_video_id}")
+        processed_video = vi_service.wait_for_processing(
+            azure_video_id
+        )
+
+        logger.info(
+            f"Video processing completed for ID: {azure_video_id}"
+        )
+
+        # 5. NOW retrieve the final insights
+        raw_insights = vi_service.get_video_insights(
+            azure_video_id
+        )
+
+        logger.info(
+            f"Retrieved video insights for ID: {azure_video_id}"
+        )
+
+        print("RAW INSIGHTS:")
+        print(raw_insights)
+
+        # 6. Extract transcript + OCR
+        clean_data = vi_service.extract_data(
+            raw_insights
+        )
+
+        logger.info(
+            f"Extracted clean data from video insights "
+            f"for ID: {azure_video_id}"
+        )
+
+        # 7. Return data to LangGraph state
+        return {
+            "video_id": video_id_input,
+            "transcript": clean_data.get("transcript", []),
+            "ocr_text": clean_data.get("ocr", []),
+            "compliance_issues": [],
+            "errors": [],
+            "final_status": "success",
+        }
+
     except Exception as e:
-        logger.error(f"Error during video indexing: {str(e)}")
-        return{
+
+        logger.error(
+            f"Error during video indexing: {str(e)}"
+        )
+
+        # Make sure local file is cleaned up even if something fails
+        if os.path.exists(local_file_path):
+            try:
+                os.remove(local_file_path)
+                logger.info(
+                    f"Deleted local video file: {local_file_path}"
+                )
+            except Exception as cleanup_error:
+                logger.warning(
+                    f"Could not delete local video file: "
+                    f"{cleanup_error}"
+                )
+
+        return {
             "errors": [str(e)],
             "final_status": "failure",
             "transcript": None,
             "ocr_text": [],
             "compliance_issues": [],
-
         }
 
 def audio_content_node(state: VideoAuditState) -> Dict[str, Any]:
@@ -78,10 +153,11 @@ def audio_content_node(state: VideoAuditState) -> Dict[str, Any]:
         temperature = 0.2,
 
     )
-    embeddings = AzureOpenAIEmbeddings(
-        azure_deployment = "text-embedding-3-small",
-        openai_api_version = os.getenv("AZURE_OPENAI_API_VERSION"),
-    )
+    embeddings = OpenAIEmbeddings(
+    model=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT"),
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    base_url=os.getenv("AZURE_OPENAI_ENDPOINT") + "/openai/v1",
+)
 
     vectorstore = AzureSearch(
         azure_search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT"),
@@ -122,7 +198,7 @@ def audio_content_node(state: VideoAuditState) -> Dict[str, Any]:
     OCR_Text: {' '.join(ocr_text)}
 """
     try:
-        respone = lmm.invoke([
+        respone = llm.invoke([
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_message)
         ])
