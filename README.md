@@ -8,6 +8,32 @@ ComplaineQAPipeline is a Python-based project designed to summarize YouTube vide
 ## Tech Stack
 
 ### Programming Language & Package Management
+## Tech Stack
+
+### Language & Framework
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge\&logo=python\&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge\&logo=langchain\&logoColor=white)
+
+### Azure Cloud & AI
+
+![Microsoft Azure](https://img.shields.io/badge/Microsoft%20Azure-0078D4?style=for-the-badge\&logo=microsoftazure\&logoColor=white)
+![Azure OpenAI](https://img.shields.io/badge/Azure%20OpenAI-0078D4?style=for-the-badge\&logo=openai\&logoColor=white)
+![Azure AI Search](https://img.shields.io/badge/Azure%20AI%20Search-0078D4?style=for-the-badge\&logo=microsoftazure\&logoColor=white)
+![Azure Storage](https://img.shields.io/badge/Azure%20Storage-0078D4?style=for-the-badge\&logo=microsoftazure\&logoColor=white)
+![Azure Video Indexer](https://img.shields.io/badge/Azure%20Video%20Indexer-0078D4?style=for-the-badge\&logo=microsoftazure\&logoColor=white)
+
+### Observability & Tracing
+
+![Application Insights](https://img.shields.io/badge/Application%20Insights-0078D4?style=for-the-badge\&logo=microsoftazure\&logoColor=white)
+![LangSmith](https://img.shields.io/badge/LangSmith-1C3C3C?style=for-the-badge\&logo=langchain\&logoColor=white)
+
+### Development & Version Control
+
+![uv](https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge\&logo=astral\&logoColor=white)
+![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge\&logo=git\&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge\&logo=github\&logoColor=white)
+
 
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge\&logo=python\&logoColor=white)
 ![uv](https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge\&logo=astral\&logoColor=white)
@@ -15,7 +41,7 @@ ComplaineQAPipeline is a Python-based project designed to summarize YouTube vide
 ### AI & Natural Language Processing
 
 ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge\&logo=langchain\&logoColor=white)
-![Hugging Face](https://img.shields.io/badge/Hugging%20Face-FFD21E?style=for-the-badge\&logo=huggingface\&logoColor=black)
+
 
 ### YouTube & Content Processing
 
