@@ -1,22 +1,23 @@
 # ComplaineQAPipeline
 
-An AI-powered pipeline for processing complaints and answering questions related to them.
+An AI-powered YouTube video summarization pipeline that helps users understand video content without watching the entire video.
 
 ## Overview
 
-ComplaineQAPipeline is a Python project focused on building a structured pipeline for complaint-related question answering. The project aims to organize complaint data and support relevant, informative responses to user queries.
+ComplaineQAPipeline is a Python-based project designed to summarize YouTube videos by processing their content and generating concise summaries. It aims to make lengthy videos easier to understand and helps users quickly identify the key points.
 
 ## Features
 
-* Complaint-related question answering
+* YouTube video summarization
+* Automated content processing
+* AI-powered summary generation
 * Structured processing pipeline
 * Python-based implementation
-* Modular project development
 
 ## Tech Stack
 
 * **Language:** Python
-* **Package Management:** `uv`
+* **Package Management:** uv
 
 ## Installation
 
@@ -35,20 +36,18 @@ uv sync
 
 ## Usage
 
-Run the project using the appropriate entry point configured in the repository.
+Run the application using the configured project entry point and provide a YouTube video as input.
 
-## Project Structure
+The pipeline processes the video content and generates a concise summary.
 
-The project structure may evolve as development continues.
+## Project Goals
 
-## Future Improvements
-
-* Improve question-answering accuracy
-* Integrate suitable language models
-* Add evaluation and testing
-* Implement logging and error handling
-* Develop automated testing and CI/CD workflows
+* Simplify long-form video consumption
+* Automate video content summarization
+* Build a modular AI pipeline
+* Improve the efficiency of extracting key information from videos
 
 ## Author
 
 **Pujan Pandey**
+
